@@ -177,10 +177,11 @@ def gerar_pdf(html_content):
         'margin-bottom': '15mm',
         'margin-left': '15mm',
         'encoding': "UTF-8",
-        'no-images': None,  # permite imagens se quiser adicionar logo depois
+        'no-images': None,
     }
-    config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
-    pdf = pdfkit.from_string(html_content, False, options=options, configuration=config)
+    # Remova a linha que força o caminho do Windows
+    # config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
+    pdf = pdfkit.from_string(html_content, False, options=options)
     return pdf
 
 def enviar_email_com_pdf(pdf_bytes, assunto="Laudo Técnico - BonSono"):
