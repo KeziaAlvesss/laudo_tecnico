@@ -1,15 +1,16 @@
 import streamlit as st
-from xhtml2pdf import pisa
+import pdfkit
 from io import BytesIO
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+import os
 
 # Configurações de e-mail
-EMAIL_REMETENTE = "keziaalves318@gmail.com"
-EMAIL_SENHA = "gkblniuaemhffiwq"  # App Password do Gmail
+EMAIL_REMETENTE = "keziaalves318@gmail.com"  
+EMAIL_SENHA = "gkblniuaemhffiwq"  # App Password do Gmail - use com cuidado
 EMAIL_DESTINO = "qualidade@bonsono.com.br"
 
 def gerar_html_laudo(dados):
@@ -64,20 +65,15 @@ def gerar_html_laudo(dados):
             }}
             .signature-item {{
                 width: 45%;
-                text-align: center;
+                border: 1px solid #000;
                 padding: 5px;
+                text-align: center;
             }}
             .observation-box {{
                 border: 1px solid #000;
                 padding: 10px;
                 min-height: 80px;
                 margin-top: 10px;
-            }}
-            hr {{
-                border: none;
-                border-bottom: 1px solid #000;
-                width: 80%;
-                margin: 5px auto;
             }}
         </style>
     </head>
@@ -162,12 +158,10 @@ def gerar_html_laudo(dados):
         <!-- ASSINATURA E DATA -->
         <div class="signature-box">
             <div class="signature-item">
-                Data: {dados['data']}<br>
-                <hr>
+                Data: {dados['data']}
             </div>
             <div class="signature-item">
-                Responsável: {dados['responsavel']}<br>
-                <hr>
+                Responsável: {dados['responsavel']}
             </div>
         </div>
 
@@ -176,21 +170,18 @@ def gerar_html_laudo(dados):
     """
 
 def gerar_pdf(html_content):
-    try:
-        pdf_buffer = BytesIO()
-        result = pisa.CreatePDF(
-            html_content,
-            dest=pdf_buffer,
-            encoding='utf-8'
-        )
-        if not result.err:
-            return pdf_buffer.getvalue()
-        else:
-            st.error("Erro ao gerar PDF")
-            return None
-    except Exception as e:
-        st.error(f"Exceção ao gerar PDF: {e}")
-        return None
+    options = {
+        'page-size': 'A4',
+        'margin-top': '15mm',
+        'margin-right': '15mm',
+        'margin-bottom': '15mm',
+        'margin-left': '15mm',
+        'encoding': "UTF-8",
+        'no-images': None,  # permite imagens se quiser adicionar logo depois
+    }
+    config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
+    pdf = pdfkit.from_string(html_content, False, options=options, configuration=config)
+    return pdf
 
 def enviar_email_com_pdf(pdf_bytes, assunto="Laudo Técnico - BonSono"):
     msg = MIMEMultipart()
@@ -268,7 +259,7 @@ observacoes = st.text_area("Observações técnicas", key="observacoes")
 c_data, c_resp = st.columns(2)
 with c_data:
     data_input = st.date_input("Data", key="data")
-    data = data_input.strftime("%d/%m/%Y") if data_input else ""
+    data = data_input.strftime("%d/%m/%Y")
 with c_resp:
     responsavel = st.text_input("Assinatura do Responsável", key="responsavel")
 
@@ -317,7 +308,26 @@ with col_btn2:
         if not pedido_val or not cliente_val:
             st.error("Preencha pelo menos o Pedido e o Cliente.")
         else:
-            dados = { ... }  # (mesmo que acima)
+            dados = {
+                'pedido': pedido_val,
+                'cliente': cliente_val,
+                'densidade_bloco': st.session_state.get("densidade_bloco", ""),
+                'num_bloco': st.session_state.get("num_bloco", ""),
+                'lote_bloco': st.session_state.get("lote_bloco", ""),
+                'bloco_largura_cm': st.session_state.get("bloco_largura_cm", 0.0),
+                'bloco_comprimento_cm': st.session_state.get("bloco_comprimento_cm", 0.0),
+                'bloco_altura_cm': st.session_state.get("bloco_altura_cm", 0.0),
+                'posicao_lamina': st.session_state.get("posicao_lamina", "Topo"),
+                'peso_kg': st.session_state.get("peso_kg", 0.0),
+                'largura_lamina_m': st.session_state.get("largura_lamina_m", 0.0),
+                'comprimento_lamina_m': st.session_state.get("comprimento_lamina_m", 0.0),
+                'altura_lamina_m': st.session_state.get("altura_lamina_m", 0.0),
+                'volume_m3': volume_m3,
+                'densidade_obtida': densidade_obtida,
+                'observacoes': st.session_state.get("observacoes", ""),
+                'data': data,
+                'responsavel': st.session_state.get("responsavel", ""),
+            }
             html = gerar_html_laudo(dados)
             pdf = gerar_pdf(html)
             if pdf:
@@ -331,6 +341,7 @@ with col_btn2:
 
 with col_btn3:
     if st.button("🗑️ Limpar"):
+        # Remove todas as chaves do session_state usadas
         keys_to_clear = [
             "pedido", "cliente", "densidade_bloco", "num_bloco", "lote_bloco",
             "bloco_largura_cm", "bloco_comprimento_cm", "bloco_altura_cm",
